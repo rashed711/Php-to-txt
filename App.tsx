@@ -6,6 +6,13 @@ import Spinner from './components/Spinner';
 
 type Mode = 'zip' | 'php';
 
+// Define the structure of the zip.js library on the window object for TypeScript
+declare global {
+    interface Window {
+        zip: any;
+    }
+}
+
 // Component for tab buttons
 const TabButton: React.FC<{ label: string; isActive: boolean; onClick: () => void; }> = ({ label, isActive, onClick }) => (
     <button
@@ -36,38 +43,50 @@ const App: React.FC = () => {
         setOriginalFileName(file.name);
 
         try {
-            const JSZip = (window as any).JSZip;
-            if (!JSZip) throw new Error("مكتبة JSZip غير محملة. يرجى التحقق من اتصالك بالإنترنت.");
+            const zip = window.zip;
+            if (!zip) throw new Error("مكتبة zip.js غير محملة. يرجى التحقق من اتصالك بالإنترنت.");
 
-            const zip = await JSZip.loadAsync(file);
-            const newZip = new JSZip();
-            const promises: Promise<void>[] = [];
+            const blobReader = new zip.BlobReader(file);
+            const zipReader = new zip.ZipReader(blobReader);
+            const entries = await zipReader.getEntries();
+            
+            const blobWriter = new zip.BlobWriter("application/zip");
+            const zipWriter = new zip.ZipWriter(blobWriter);
 
-            zip.forEach((relativePath, zipEntry) => {
-                const promise = (async () => {
-                    if (zipEntry.dir) {
-                        newZip.folder(relativePath);
-                    } else {
-                        const content = await zipEntry.async('blob');
-                        let newName = zipEntry.name;
-                        const lowerCaseName = zipEntry.name.toLowerCase();
-                        if (lowerCaseName.endsWith('.php') || lowerCaseName.endsWith('.sql')) {
-                            newName = zipEntry.name.replace(/\.(php|sql)$/i, '.txt');
-                        }
-                        newZip.file(newName, content);
+            if (entries.length > 0) {
+                for (const entry of entries) {
+                    // For directories, add them to preserve the folder structure.
+                    if (entry.directory) {
+                        await zipWriter.add(entry.filename, null, { directory: true });
+                        continue;
                     }
-                })();
-                promises.push(promise);
-            });
 
-            await Promise.all(promises);
-            const newZipBlob = await newZip.generateAsync({ type: 'blob' });
+                    // For files, determine if the name needs to be changed.
+                    let newName = entry.filename;
+                    const lowerCaseName = entry.filename.toLowerCase();
+                    if (lowerCaseName.endsWith('.php') || lowerCaseName.endsWith('.sql')) {
+                        newName = entry.filename.replace(/\.(php|sql)$/i, '.txt');
+                    }
+                    
+                    // A more robust way to handle entries: read the data first, then add it.
+                    // This avoids potential issues with stream-copying directly from the entry object.
+                    const data = await entry.getData(new zip.BlobWriter());
+                    
+                    await zipWriter.add(newName, new zip.BlobReader(data), {
+                        lastModDate: entry.lastModDate || new Date() // Fallback for last modification date
+                    });
+                }
+            }
+            
+            await zipReader.close();
+            const newZipBlob = await zipWriter.close();
             setProcessedBlob(newZipBlob);
 
         } catch (e) {
             console.error(e);
             const errorMessage = e instanceof Error ? e.message : 'حدث خطأ غير متوقع.';
-            setError(`حدث خطأ أثناء معالجة الملف. تأكد من أن الملف غير تالف. (${errorMessage})`);
+            const finalErrorMessage = `فشل في معالجة الملف المضغوط. قد يكون الملف تالفًا أو بصيغة غير مدعومة.\n\n(الخطأ التقني: ${errorMessage})`;
+            setError(finalErrorMessage);
             setOriginalFileName(null);
         } finally {
             setIsProcessing(false);
@@ -93,16 +112,18 @@ const App: React.FC = () => {
         setOriginalFileName(processableFiles.length > 1 ? `${processableFiles.length} ملفات` : processableFiles[0].name);
 
         try {
-            const JSZip = (window as any).JSZip;
-            if (!JSZip) throw new Error("مكتبة JSZip غير محملة.");
+            const zip = window.zip;
+            if (!zip) throw new Error("مكتبة zip.js غير محملة.");
 
-            const newZip = new JSZip();
+            const blobWriter = new zip.BlobWriter("application/zip");
+            const zipWriter = new zip.ZipWriter(blobWriter);
+
             for (const file of processableFiles) {
                 const newName = file.name.replace(/\.(php|sql)$/i, '.txt');
-                newZip.file(newName, file);
+                await zipWriter.add(newName, new zip.BlobReader(file));
             }
-
-            const newZipBlob = await newZip.generateAsync({ type: 'blob' });
+            
+            const newZipBlob = await zipWriter.close();
             setProcessedBlob(newZipBlob);
 
         } catch (e) {
@@ -168,7 +189,7 @@ const App: React.FC = () => {
                         </div>
                     ) : error ? (
                         <div className="p-6 md:p-10 text-center">
-                            <p className="text-red-400 text-lg mb-6">{error}</p>
+                            <p className="text-red-400 text-lg mb-6 whitespace-pre-wrap">{error}</p>
                             <button
                                 onClick={handleReset}
                                 className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-2 px-6 rounded-lg transition-colors"
