@@ -1,20 +1,29 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# DevBox | صندوق أدوات المطور
 
-This contains everything you need to run your app locally.
+منصة ويب متكاملة مبنية باستخدام React و TypeScript، توفر مجموعة من الأدوات الذكية لتسهيل حياة المطورين.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1qpgaQ-kwhDJBDAWqS2vAKP6MzA-dpU1S
+## المميزات الحالية
 
-## Run Locally
+1.  **تحليل الصور بالذكاء الاصطناعي (جديد):**
+    *   استخراج "Prompt" دقيق من أي صورة لاستخدامه في مولدات الصور (Midjourney/Stable Diffusion).
+    *   شرح محتوى الصورة باللغة العربية.
+    *   إمكانية تعديل البرومت باستخدام أوامر عربية بسيطة.
 
-**Prerequisites:**  Node.js
+2.  **أدوات معالجة الملفات:**
+    *   **محول ZIP:** رفع ملف مضغوط يحتوي على ملفات PHP/SQL وتحويلها تلقائياً إلى صيغ نصية (TXT) لتسهيل مشاركتها.
+    *   **محول الكود:** تحويل ملفات فردية من PHP/SQL إلى TXT.
 
+3.  **أدوات الصور:**
+    *   ضغط الصور وتحويل صيغها (WebP, PNG, JPG).
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## التقنيات المستخدمة
+
+*   **Frontend:** React, TypeScript, Tailwind CSS
+*   **AI:** Google Gemini API (Gemini 2.5 Flash)
+*   **Libraries:** zip.js (لضغط وفك ضغط الملفات)
+
+## كيفية التشغيل
+
+1.  تأكد من وجود مفتاح API صالح لـ Google Gemini في ملفات البيئة.
+2.  قم بتشغيل المشروع باستخدام مدير الحزم المفضل لديك.

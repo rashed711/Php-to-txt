@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { UploadIcon } from './icons/UploadIcon';
 
-interface FileUploadProps {
-    onFileSelected: (file: File) => void;
+interface ImageUploadProps {
+    onFilesSelected: (files: FileList) => void;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
+const ImageUpload: React.FC<ImageUploadProps> = ({ onFilesSelected }) => {
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -31,14 +31,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
         e.stopPropagation();
         setIsDragging(false);
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            onFileSelected(e.dataTransfer.files[0]);
+            onFilesSelected(e.dataTransfer.files);
             e.dataTransfer.clearData();
         }
-    }, [onFileSelected]);
+    }, [onFilesSelected]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            onFileSelected(e.target.files[0]);
+            onFilesSelected(e.target.files);
         }
     };
 
@@ -60,17 +60,19 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
             <input
                 ref={fileInputRef}
                 type="file"
-                accept=".zip,application/zip,application/x-zip-compressed"
+                accept="image/*"
+                multiple
                 onChange={handleFileChange}
                 className="hidden"
             />
             <div className="bg-slate-800/80 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform duration-300">
                 <UploadIcon className="w-10 h-10 sm:w-12 sm:h-12 text-slate-400 group-hover:text-cyan-400 transition-colors" />
             </div>
-            <p className="text-lg sm:text-xl font-bold text-slate-200 mb-2">اسحب وأفلت ملف ZIP هنا</p>
+            <p className="text-lg sm:text-xl font-bold text-slate-200 mb-2">اسحب صورك هنا</p>
             <p className="text-sm sm:text-base text-slate-400">أو <span className="text-cyan-400 font-semibold underline decoration-cyan-400/30 underline-offset-4">تصفح جهازك</span></p>
+            <p className="text-xs text-slate-500 mt-4 max-w-xs mx-auto">سيتم ضغط الصور وتجميعها في ملف ZIP تلقائياً.</p>
         </div>
     );
 };
 
-export default FileUpload;
+export default ImageUpload;

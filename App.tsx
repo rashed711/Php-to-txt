@@ -1,238 +1,172 @@
-import React, { useState, useCallback } from 'react';
-import FileUpload from './components/FileUpload';
-import PhpUpload from './components/PhpUpload';
-import DownloadSection from './components/DownloadSection';
-import Spinner from './components/Spinner';
 
-type Mode = 'zip' | 'php';
+import React, { useState } from 'react';
+import { HomeIcon } from './components/icons/HomeIcon';
+import { ZipIcon } from './components/icons/ZipIcon';
+import { CodeIcon } from './components/icons/CodeIcon';
+import { PhotoIcon } from './components/icons/PhotoIcon';
+import { MenuIcon } from './components/icons/MenuIcon';
+import { CloseIcon } from './components/icons/CloseIcon';
+import { SparklesIcon } from './components/icons/SparklesIcon';
+import HomePage from './components/HomePage';
+import ToolProcessor from './components/ToolProcessor';
+import ImageToPrompt from './components/ImageToPrompt';
 
-// Define the structure of the zip.js library on the window object for TypeScript
-declare global {
-    interface Window {
-        zip: any;
-    }
-}
+type Tool = 'home' | 'zip' | 'php' | 'image' | 'prompt';
 
-// Component for tab buttons
-const TabButton: React.FC<{ label: string; isActive: boolean; onClick: () => void; }> = ({ label, isActive, onClick }) => (
+const NavGroup: React.FC<{ title: string }> = ({ title }) => (
+    <h3 className="px-4 pt-4 pb-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        {title}
+    </h3>
+);
+
+const NavItem: React.FC<{
+    icon: React.ReactNode;
+    label: string;
+    isActive: boolean;
+    onClick: () => void;
+}> = ({ icon, label, isActive, onClick }) => (
     <button
         onClick={onClick}
-        className={`flex-1 sm:flex-initial text-center px-4 sm:px-6 py-3 text-base sm:text-lg font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded-t-lg ${
+        className={`flex items-center w-full px-4 py-3 text-right text-base rounded-lg transition-colors duration-200 mb-1 ${
             isActive
-                ? 'text-cyan-400 border-b-2 border-cyan-400 bg-slate-800'
-                : 'text-slate-400 hover:text-white border-b-2 border-transparent'
+                ? 'bg-cyan-500/10 text-cyan-400 font-medium'
+                : 'text-slate-400 hover:bg-slate-700/50 hover:text-white'
         }`}
-        role="tab"
-        aria-selected={isActive}
     >
-        {label}
+        <span className="ml-3">{icon}</span>
+        <span>{label}</span>
     </button>
 );
 
 const App: React.FC = () => {
-    const [mode, setMode] = useState<Mode>('zip');
-    const [originalFileName, setOriginalFileName] = useState<string | null>(null);
-    const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
-    const [isProcessing, setIsProcessing] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
+    const [activeTool, setActiveTool] = useState<Tool>('home');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    const processZipFile = useCallback(async (file: File) => {
-        setIsProcessing(true);
-        setError(null);
-        setProcessedBlob(null);
-        setOriginalFileName(file.name);
-
-        try {
-            const zip = window.zip;
-            if (!zip) throw new Error("مكتبة zip.js غير محملة. يرجى التحقق من اتصالك بالإنترنت.");
-
-            const blobReader = new zip.BlobReader(file);
-            const zipReader = new zip.ZipReader(blobReader);
-            const entries = await zipReader.getEntries();
-            
-            const blobWriter = new zip.BlobWriter("application/zip");
-            const zipWriter = new zip.ZipWriter(blobWriter);
-
-            if (entries.length > 0) {
-                for (const entry of entries) {
-                    // For directories, add them to preserve the folder structure.
-                    if (entry.directory) {
-                        await zipWriter.add(entry.filename, null, { directory: true });
-                        continue;
-                    }
-
-                    // For files, determine if the name needs to be changed.
-                    let newName = entry.filename;
-                    const lowerCaseName = entry.filename.toLowerCase();
-                    if (lowerCaseName.endsWith('.php') || lowerCaseName.endsWith('.sql')) {
-                        newName = entry.filename.replace(/\.(php|sql)$/i, '.txt');
-                    }
-                    
-                    // A more robust way to handle entries: read the data first, then add it.
-                    // This avoids potential issues with stream-copying directly from the entry object.
-                    const data = await entry.getData(new zip.BlobWriter());
-                    
-                    await zipWriter.add(newName, new zip.BlobReader(data), {
-                        lastModDate: entry.lastModDate || new Date() // Fallback for last modification date
-                    });
-                }
-            }
-            
-            await zipReader.close();
-            const newZipBlob = await zipWriter.close();
-            setProcessedBlob(newZipBlob);
-
-        } catch (e) {
-            console.error(e);
-            const errorMessage = e instanceof Error ? e.message : 'حدث خطأ غير متوقع.';
-            const finalErrorMessage = `فشل في معالجة الملف المضغوط. قد يكون الملف تالفًا أو بصيغة غير مدعومة.\n\n(الخطأ التقني: ${errorMessage})`;
-            setError(finalErrorMessage);
-            setOriginalFileName(null);
-        } finally {
-            setIsProcessing(false);
-        }
-    }, []);
-
-    const processIndividualFiles = useCallback(async (files: FileList) => {
-        setIsProcessing(true);
-        setError(null);
-        setProcessedBlob(null);
-
-        const processableFiles = Array.from(files).filter(f => {
-            const lowerName = f.name.toLowerCase();
-            return lowerName.endsWith('.php') || lowerName.endsWith('.sql');
-        });
-
-        if (processableFiles.length === 0) {
-            setError('لم يتم العثور على ملفات PHP أو SQL. الرجاء رفع ملفات بصيغة PHP أو SQL.');
-            setIsProcessing(false);
-            return;
-        }
-
-        setOriginalFileName(processableFiles.length > 1 ? `${processableFiles.length} ملفات` : processableFiles[0].name);
-
-        try {
-            const zip = window.zip;
-            if (!zip) throw new Error("مكتبة zip.js غير محملة.");
-
-            const blobWriter = new zip.BlobWriter("application/zip");
-            const zipWriter = new zip.ZipWriter(blobWriter);
-
-            for (const file of processableFiles) {
-                const newName = file.name.replace(/\.(php|sql)$/i, '.txt');
-                await zipWriter.add(newName, new zip.BlobReader(file));
-            }
-            
-            const newZipBlob = await zipWriter.close();
-            setProcessedBlob(newZipBlob);
-
-        } catch (e) {
-            console.error(e);
-            const errorMessage = e instanceof Error ? e.message : 'حدث خطأ غير متوقع.';
-            setError(`حدث خطأ أثناء معالجة الملفات. (${errorMessage})`);
-            setOriginalFileName(null);
-        } finally {
-            setIsProcessing(false);
-        }
-    }, []);
-
-    const handleZipSelected = (file: File) => {
-        if (file.type !== 'application/zip' && !file.name.toLowerCase().endsWith('.zip')) {
-            setError('الرجاء رفع ملف مضغوط بصيغة ZIP فقط.');
-            return;
-        }
-        setError(null);
-        processZipFile(file);
+    const handleToolChange = (tool: Tool) => {
+        setActiveTool(tool);
+        setIsSidebarOpen(false); // Close sidebar on mobile when item selected
     };
 
-    const handleFilesSelected = (files: FileList) => {
-        setError(null);
-        processIndividualFiles(files);
-    };
-
-    const handleReset = () => {
-        setOriginalFileName(null);
-        setProcessedBlob(null);
-        setError(null);
-        setIsProcessing(false);
-    };
-
-    const handleDownload = () => {
-        if (processedBlob && originalFileName) {
-            const saveAs = (window as any).saveAs;
-            if (!saveAs) {
-                setError("مكتبة FileSaver غير محملة. يرجى التحقق من اتصالك بالإنترنت.");
-                return;
-            }
-            const newFileName = mode === 'zip'
-                ? originalFileName.replace(/\.zip$/i, '_converted.zip')
-                : 'converted_files.zip';
-            saveAs(processedBlob, newFileName);
+    const renderTool = () => {
+        switch (activeTool) {
+            case 'home':
+                return <HomePage setActiveTool={handleToolChange} />;
+            case 'zip':
+                return <ToolProcessor key="zip" toolType="zip" />;
+            case 'php':
+                return <ToolProcessor key="php" toolType="php" />;
+            case 'image':
+                return <ToolProcessor key="image" toolType="image" />;
+            case 'prompt':
+                return <ImageToPrompt />;
+            default:
+                return <HomePage setActiveTool={handleToolChange} />;
         }
     };
-
+    
     return (
-        <div className="bg-slate-900 min-h-screen flex flex-col items-center justify-center p-4 text-white">
-            <div className="w-full max-w-2xl mx-auto">
-                <header className="text-center mb-8">
-                    <h1 className="text-4xl md:text-5xl font-bold text-cyan-400">محول امتدادات PHP و SQL إلى TXT</h1>
-                    <p className="text-slate-400 mt-4 text-lg">
-                        اختر طريقة التحويل: ارفع ملف ZIP أو ملفات PHP/SQL مباشرة.
-                    </p>
-                </header>
+        <div className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-white font-sans">
+            {/* Mobile Header */}
+            <header className="md:hidden flex items-center justify-between p-4 bg-slate-800 border-b border-slate-700 sticky top-0 z-30">
+                <div className="flex items-center gap-2">
+                    <span className="text-xl font-bold text-white">
+                        Dev<span className="text-cyan-400">Box</span>
+                    </span>
+                </div>
+                <button 
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="p-2 text-slate-300 hover:text-white focus:outline-none"
+                    aria-label="فتح القائمة"
+                >
+                    <MenuIcon className="w-6 h-6" />
+                </button>
+            </header>
 
-                <main className="bg-slate-800/50 rounded-2xl shadow-2xl overflow-hidden border border-slate-700 backdrop-blur-sm">
-                    {isProcessing ? (
-                        <div className="p-6 md:p-10 flex flex-col items-center justify-center h-64">
-                            <Spinner />
-                            <p className="mt-4 text-xl text-slate-300">جاري المعالجة...</p>
+            {/* Mobile Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            {/* Sidebar Navigation */}
+            <aside className={`
+                fixed inset-y-0 right-0 z-50 w-72 bg-slate-800 border-l border-slate-700 
+                transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-auto md:w-64 md:block
+                ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full'}
+            `}>
+                <div className="flex flex-col h-full">
+                    <div className="flex items-center justify-between p-4 md:p-6 md:justify-center">
+                        <div className="md:text-center">
+                            <h1 className="text-2xl font-bold text-white">
+                                Dev<span className="text-cyan-400">Box</span>
+                            </h1>
+                            <p className="text-xs text-slate-400 hidden md:block mt-1">صندوق أدوات المطور</p>
                         </div>
-                    ) : error ? (
-                        <div className="p-6 md:p-10 text-center">
-                            <p className="text-red-400 text-lg mb-6 whitespace-pre-wrap">{error}</p>
-                            <button
-                                onClick={handleReset}
-                                className="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-2 px-6 rounded-lg transition-colors"
-                            >
-                                حاول مرة أخرى
-                            </button>
-                        </div>
-                    ) : processedBlob && originalFileName ? (
-                         <div className="p-6 md:p-10">
-                            <DownloadSection
-                                fileName={originalFileName}
-                                onDownload={handleDownload}
-                                onReset={handleReset}
-                            />
-                        </div>
-                    ) : (
-                        <div>
-                             <div className="flex border-b border-slate-700" role="tablist" aria-label="Conversion Mode">
-                                <TabButton
-                                    label="تحويل ملف ZIP"
-                                    isActive={mode === 'zip'}
-                                    onClick={() => setMode('zip')}
-                                />
-                                <TabButton
-                                    label="تحويل ملفات PHP / SQL"
-                                    isActive={mode === 'php'}
-                                    onClick={() => setMode('php')}
-                                />
-                            </div>
-                            <div className="p-6 md:p-10">
-                                {mode === 'zip' ? (
-                                    <FileUpload onFileSelected={handleZipSelected} />
-                                ) : (
-                                    <PhpUpload onFilesSelected={handleFilesSelected} />
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </main>
-                <footer className="text-center mt-8 text-slate-500">
-                    <p>صنع بكل ❤️ للتسهيل على المطورين.</p>
-                </footer>
-            </div>
+                        <button 
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="md:hidden p-2 text-slate-400 hover:text-white"
+                        >
+                            <CloseIcon className="w-6 h-6" />
+                        </button>
+                    </div>
+
+                    <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+                        <NavItem
+                            icon={<HomeIcon className="w-5 h-5" />}
+                            label="الرئيسية"
+                            isActive={activeTool === 'home'}
+                            onClick={() => handleToolChange('home')}
+                        />
+
+                        <NavGroup title="الذكاء الاصطناعي" />
+                        <NavItem
+                            icon={<SparklesIcon className="w-5 h-5" />}
+                            label="استخراج وصف الصورة"
+                            isActive={activeTool === 'prompt'}
+                            onClick={() => handleToolChange('prompt')}
+                        />
+
+                        <NavGroup title="أدوات الملفات" />
+                        <NavItem
+                            icon={<ZipIcon className="w-5 h-5" />}
+                            label="تحويل ملف ZIP"
+                            isActive={activeTool === 'zip'}
+                            onClick={() => handleToolChange('zip')}
+                        />
+                         <NavItem
+                            icon={<CodeIcon className="w-5 h-5" />}
+                            label="تحويل PHP / SQL"
+                            isActive={activeTool === 'php'}
+                            onClick={() => handleToolChange('php')}
+                        />
+
+                        <NavGroup title="أدوات الصور" />
+                         <NavItem
+                            icon={<PhotoIcon className="w-5 h-5" />}
+                            label="ضغط الصور"
+                            isActive={activeTool === 'image'}
+                            onClick={() => handleToolChange('image')}
+                        />
+                    </nav>
+
+                    <div className="p-4 border-t border-slate-700 md:hidden">
+                        <p className="text-xs text-center text-slate-500">
+                           جميع الحقوق محفوظة &copy; 2024
+                        </p>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 w-full overflow-x-hidden">
+                <div className="h-full p-4 sm:p-6 lg:p-10 overflow-y-auto">
+                    <div className="w-full max-w-4xl mx-auto">
+                        {renderTool()}
+                    </div>
+                </div>
+            </main>
         </div>
     );
 };

@@ -55,7 +55,7 @@ const PhpUpload: React.FC<PhpUploadProps> = ({ onFilesSelected }) => {
             onDragOver={handleDragOver}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
-            className={`flex flex-col items-center justify-center p-8 border-2 border-dashed ${dragClass} rounded-lg cursor-pointer transition-all duration-300 text-center`}
+            className={`flex flex-col items-center justify-center p-6 sm:p-10 border-2 border-dashed ${dragClass} rounded-xl cursor-pointer transition-all duration-300 text-center min-h-[250px] group`}
         >
             <input
                 ref={fileInputRef}
@@ -65,9 +65,12 @@ const PhpUpload: React.FC<PhpUploadProps> = ({ onFilesSelected }) => {
                 onChange={handleFileChange}
                 className="hidden"
             />
-            <UploadIcon className="w-16 h-16 text-slate-500 mb-4 transition-colors group-hover:text-cyan-400" />
-            <p className="text-xl font-bold text-slate-300">اسحب وأفلت ملفات PHP أو SQL هنا</p>
-            <p className="text-slate-400 mt-2">أو <span className="text-cyan-400 font-semibold">انقر للاختيار</span> (يمكنك اختيار أكثر من ملف)</p>
+            <div className="bg-slate-800/80 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform duration-300">
+                <UploadIcon className="w-10 h-10 sm:w-12 sm:h-12 text-slate-400 group-hover:text-cyan-400 transition-colors" />
+            </div>
+            <p className="text-lg sm:text-xl font-bold text-slate-200 mb-2">اسحب وأفلت ملفات PHP أو SQL</p>
+            <p className="text-sm sm:text-base text-slate-400">أو <span className="text-cyan-400 font-semibold underline decoration-cyan-400/30 underline-offset-4">تصفح جهازك</span></p>
+            <p className="text-xs text-slate-500 mt-3 bg-slate-800/50 px-3 py-1 rounded-full">يمكنك اختيار ملف واحد أو أكثر</p>
         </div>
     );
 };
