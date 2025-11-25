@@ -68,6 +68,25 @@ const ImageToPrompt: React.FC = () => {
         };
     };
 
+    const getApiKey = () => {
+        // First try standard process.env (for local dev)
+        let key = process.env.API_KEY;
+        
+        // If not found, try the window.process polyfill (for hosting)
+        if (!key && (window as any).process?.env?.API_KEY) {
+            key = (window as any).process.env.API_KEY;
+        }
+
+        if (!key || key.trim() === '') {
+            throw new Error(
+                "مفتاح API غير موجود. \n" +
+                "يرجى فتح ملف index.html على الاستضافة وإضافة مفتاحك في قسم:\n" +
+                "window.process = { env: { API_KEY: 'هنا' } }"
+            );
+        }
+        return key;
+    };
+
     const generatePrompt = async () => {
         if (!selectedFile) return;
 
@@ -77,7 +96,8 @@ const ImageToPrompt: React.FC = () => {
         setArabicExplanation('');
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = getApiKey();
+            const ai = new GoogleGenAI({ apiKey: apiKey });
             const model = "gemini-2.5-flash";
 
             const imagePart = await fileToGenerativePart(selectedFile);
@@ -125,7 +145,7 @@ const ImageToPrompt: React.FC = () => {
 
         } catch (err: any) {
             console.error(err);
-            setError(`حدث خطأ أثناء تحليل الصورة: ${err.message || 'خطأ غير معروف'}`);
+            setError(err.message || 'خطأ غير معروف');
         } finally {
             setIsGenerating(false);
         }
@@ -138,7 +158,8 @@ const ImageToPrompt: React.FC = () => {
         setError(null);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = getApiKey();
+            const ai = new GoogleGenAI({ apiKey: apiKey });
             const model = "gemini-2.5-flash";
 
             const promptText = `
@@ -182,7 +203,7 @@ const ImageToPrompt: React.FC = () => {
 
         } catch (err: any) {
             console.error(err);
-            setError(`حدث خطأ أثناء تعديل البرومت: ${err.message}`);
+            setError(err.message || 'حدث خطأ أثناء تعديل البرومت');
         } finally {
             setIsModifying(false);
         }
@@ -284,8 +305,8 @@ const ImageToPrompt: React.FC = () => {
 
                                 {error && (
                                     <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-center">
-                                        <p className="font-bold mb-2">عذراً، حدث خطأ</p>
-                                        <p>{error}</p>
+                                        <p className="font-bold mb-2">تنبيه هام</p>
+                                        <p className="whitespace-pre-line leading-relaxed">{error}</p>
                                         <button onClick={generatePrompt} className="mt-4 px-6 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition text-white">حاول مرة أخرى</button>
                                     </div>
                                 )}

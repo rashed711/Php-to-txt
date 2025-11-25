@@ -25,6 +25,17 @@
   }
 }
 </script>
+<!-- 
+  تكوين البيئة للاستضافة (Environment Configuration)
+  عند رفع الموقع، قم بوضع مفتاح API الخاص بك هنا بدلاً من 'YOUR_API_KEY_HERE'
+-->
+<script>
+  window.process = {
+    env: {
+      API_KEY: 'AIzaSyDmEMzjSYIEGbqTs51hwmieXAXwmMifxd4' // ضع مفتاح Gemini API هنا عند الرفع على الاستضافة
+    }
+  };
+</script>
 <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-slate-900">
